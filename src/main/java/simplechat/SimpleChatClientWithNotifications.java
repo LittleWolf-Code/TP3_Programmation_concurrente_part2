@@ -5,12 +5,16 @@ import java.awt.*;
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.nio.channels.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class SimpleChatClientWithNotifications {
     private JTextArea incoming;
     private JTextField outgoing;
     private PrintWriter writer;
+    private BufferedReader reader;
 
     public void go() {
         setUpNetworking();
@@ -22,6 +26,8 @@ public class SimpleChatClientWithNotifications {
         mainPanel.add(scroller);
         mainPanel.add(outgoing);
         mainPanel.add(sendButton);
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        executor.execute(new incomingReader());
 
         JFrame frame = new JFrame("Simple Chat Client");
         frame.getContentPane().add(BorderLayout.CENTER, mainPanel);
@@ -30,6 +36,8 @@ public class SimpleChatClientWithNotifications {
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
 
         // TODO : Créer un ExecutorService pour gérer le thread de lecture des messages
+        
+
         // Choisir parmis les implémentations d'ExecutorService, celle qui vous semble
         // la plus adaptée : newFixedThreadPool, newSingleThreadExecutor,
         // newCachedThreadPool...
@@ -47,6 +55,26 @@ public class SimpleChatClientWithNotifications {
         return scroller;
     }
 
+    public class incomingReader implements Runnable {
+
+
+        public void run() {
+            String message;
+            try {
+                // IMPORTANT : la méthode readLine est bloquante, elle attend qu'une ligne
+                // soit disponible
+                while ((message = reader.readLine()) != null) {
+                    System.out.println("read " + message);
+                    incoming.append(message + "\n");
+                }
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+        }
+    }
+
+    
+
     private void setUpNetworking() {
         try {
             // serverAddress represente l'adresse complete de la machine serveur
@@ -54,6 +82,7 @@ public class SimpleChatClientWithNotifications {
             // On ouvre la connexion
             SocketChannel socketChannel = SocketChannel.open(serverAddress);
             // On crée un "Writer" pour envoyer des donnees a travers le SocketChannel
+            reader = new BufferedReader(Channels.newReader(socketChannel, UTF_8));
             writer = new PrintWriter(Channels.newWriter(socketChannel, UTF_8));
             System.out.println("Networking established.");
         } catch (IOException e) {
